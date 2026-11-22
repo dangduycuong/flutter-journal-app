@@ -1,13 +1,14 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/services/storage_service.dart';
 
 class SettingsScreen extends StatefulWidget {
-  final VoidCallback onConfigSaved;
-  const SettingsScreen({super.key, required this.onConfigSaved});
+  final VoidCallback? onConfigSaved;
+  const SettingsScreen({super.key, this.onConfigSaved});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -16,21 +17,17 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _storage = StorageService();
   final _ownerController = TextEditingController();
-  final _repoController = TextEditingController(text: 'my-journal-data');
+  final _repoController = TextEditingController();
   final _tokenController = TextEditingController();
-
-  bool _isTesting = false;
-  bool _obscureToken = true;
   bool _biometricEnabled = false;
+  bool _hasAppPin = false;
+  bool _isLoading = false;
+  bool _obscureToken = true;
 
   @override
   void initState() {
     super.initState();
-    _loadConfig();
-    // Lắng nghe thay đổi để tự động ẩn/hiện nút X trên từng ô
-    _ownerController.addListener(() => setState(() {}));
-    _repoController.addListener(() => setState(() {}));
-    _tokenController.addListener(() => setState(() {}));
+    _loadCurrentConfig();
   }
 
   @override
@@ -41,40 +38,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadConfig() async {
+  Future<void> _loadCurrentConfig() async {
     final config = await _storage.getGitHubConfig();
-    _biometricEnabled = await _storage.isBiometricLockEnabled();
+    final bio = await _storage.isBiometricLockEnabled();
+    final pin = await _storage.getAppPin();
+    if (!mounted) return;
     setState(() {
       _ownerController.text = config['owner'] ?? '';
       _repoController.text = config['repo'] ?? 'my-journal-data';
       _tokenController.text = config['token'] ?? '';
+      _biometricEnabled = bio;
+      _hasAppPin = pin != null && pin.isNotEmpty;
     });
   }
 
-  Future<void> _save() async {
+  Future<void> _showSetPinDialog() async {
+    final pinController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(_hasAppPin ? 'Đổi mã PIN 6 số' : 'Đặt mã PIN 6 số'),
+        content: TextField(
+          controller: pinController,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          obscureText: true,
+          autofocus: true,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(
+            labelText: 'Nhập 6 chữ số',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          if (_hasAppPin)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'REMOVE'),
+              child: const Text(
+                'Tắt mã PIN',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (pinController.text.length == 6) {
+                Navigator.pop(ctx, pinController.text);
+              }
+            },
+            child: const Text('Lưu PIN'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'REMOVE') {
+      await _storage.setAppPin(null);
+      if (!mounted) return;
+      setState(() => _hasAppPin = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã tắt mã PIN ứng dụng')));
+    } else if (result != null && result.length == 6) {
+      await _storage.setAppPin(result);
+      if (!mounted) return;
+      setState(() => _hasAppPin = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã lưu mã PIN 6 số thành công!')),
+      );
+    }
+  }
+
+  Future<void> _testAndSave() async {
     final owner = _ownerController.text.trim();
     final repo = _repoController.text.trim();
     final token = _tokenController.text.trim();
 
-    if (owner.isEmpty || token.isEmpty || repo.isEmpty) {
+    if (owner.isEmpty || repo.isEmpty || token.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập đủ Username, Repo và Token'),
-        ),
+        const SnackBar(content: Text('Vui lòng điền đầy đủ thông tin GitHub')),
       );
       return;
     }
 
-    setState(() => _isTesting = true);
-
+    setState(() => _isLoading = true);
     try {
-      final testUrl = Uri.parse('https://github.com');
-      debugPrint('=== KIỂM TRA KẾT NỐI GITHUB ===');
-      debugPrint('URL gọi: $testUrl');
-      debugPrint('Độ dài Token: ${token.length} ký tự');
-
+      final host = ['api', 'github', 'com'].join('.');
+      final url = Uri.https(host, '/repos/$owner/$repo');
       final res = await http.get(
-        testUrl,
+        url,
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -82,108 +137,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
       );
 
-      debugPrint('Mã phản hồi HTTP: ${res.statusCode}');
-      debugPrint('Nội dung phản hồi: ${res.body}');
-      debugPrint('===============================');
-
       if (res.statusCode == 200) {
         await _storage.saveGitHubConfig(owner: owner, repo: repo, token: token);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Kết nối thành công! Đã lưu cấu hình.'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('Kết nối GitHub thành công!')),
         );
-        widget.onConfigSaved();
+        widget.onConfigSaved?.call();
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Lỗi HTTP ${res.statusCode}: Xem chi tiết ở Debug Console VS Code',
+              'Lỗi kết nối (${res.statusCode}): Kiểm tra lại Token hoặc tên Repo',
             ),
-            backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e, stackTrace) {
-      debugPrint('=== LỖI NGOẠI LỆ KHI LƯU CẤU HÌNH ===');
-      debugPrint('Lỗi: $e');
-      debugPrint('StackTrace: $stackTrace');
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Lỗi mạng: $e')));
     } finally {
-      if (mounted) setState(() => _isTesting = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Cấu hình GitHub')),
+      appBar: AppBar(title: const Text('Cài đặt')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const Text(
+            'Cấu hình GitHub Private Repository',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _ownerController,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               labelText: 'GitHub Username (Owner)',
-              border: const OutlineInputBorder(),
-              suffixIcon: _ownerController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () => _ownerController.clear(),
-                    )
-                  : null,
+              border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           TextField(
             controller: _repoController,
-            decoration: InputDecoration(
-              labelText: 'Tên Repository dữ liệu',
-              border: const OutlineInputBorder(),
-              suffixIcon: _repoController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () => _repoController.clear(),
-                    )
-                  : null,
+            decoration: const InputDecoration(
+              labelText: 'Tên Repository (mặc định: my-journal-data)',
+              border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           TextField(
             controller: _tokenController,
             obscureText: _obscureToken,
             decoration: InputDecoration(
-              labelText: 'Personal Access Token',
+              labelText: 'Personal Access Token (PAT)',
               border: const OutlineInputBorder(),
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _obscureToken ? Icons.visibility : Icons.visibility_off,
-                    ),
-                    onPressed: () =>
-                        setState(() => _obscureToken = !_obscureToken),
-                  ),
-                  if (_tokenController.text.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () => _tokenController.clear(),
-                    ),
-                ],
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureToken ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () => setState(() => _obscureToken = !_obscureToken),
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: _isTesting ? null : _save,
-            icon: _isTesting
+            onPressed: _isLoading ? null : _testAndSave,
+            icon: _isLoading
                 ? const SizedBox(
                     width: 18,
                     height: 18,
@@ -193,19 +218,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   )
                 : const Icon(Icons.save),
-            label: Text(
-              _isTesting
-                  ? 'Đang kiểm tra kết nối...'
-                  : 'Kiểm tra & Lưu cấu hình',
-            ),
+            label: const Text('Kiểm tra & Lưu cấu hình'),
           ),
           if (!Platform.isMacOS) ...[
             const Divider(height: 32),
+            const Text(
+              'Bảo mật ứng dụng',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.pin_outlined),
+              title: Text(
+                _hasAppPin
+                    ? 'Đổi mã PIN 6 số (Đang bật)'
+                    : 'Đặt mã PIN 6 số dự phòng',
+              ),
+              subtitle: const Text(
+                'Mở khóa nhanh bằng mã PIN riêng ngay trong app',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showSetPinDialog,
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               secondary: const Icon(Icons.fingerprint),
-              title: const Text('Khóa ứng dụng bằng FaceID / Vân tay'),
-              subtitle: const Text('Yêu cầu xác thực mỗi khi mở lại ứng dụng'),
+              title: const Text('Quét vân tay / FaceID khi mở app'),
+              subtitle: const Text('Tự động gọi cảm biến sinh trắc học'),
               value: _biometricEnabled,
               onChanged: (val) async {
                 await _storage.setBiometricLockEnabled(val);

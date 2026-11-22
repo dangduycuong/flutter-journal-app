@@ -11,6 +11,7 @@ class StorageService {
   static const _keyOwner = 'github_owner';
   static const _keyRepo = 'github_repo';
   static const _keyBiometricLock = 'biometric_lock_enabled';
+  static const _keyAppPin = 'app_pin_code';
 
   Future<File> _getMacConfigFile() async {
     final dir = await getApplicationSupportDirectory();
@@ -25,13 +26,14 @@ class StorageService {
   }) async {
     if (Platform.isMacOS) {
       final file = await _getMacConfigFile();
-      await file.writeAsString(
-        jsonEncode({
-          _keyOwner: owner.trim(),
-          _keyToken: token.trim(),
-          _keyRepo: repo.trim(),
-        }),
-      );
+      Map<String, dynamic> map = {};
+      if (await file.exists()) {
+        map = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      }
+      map[_keyOwner] = owner.trim();
+      map[_keyToken] = token.trim();
+      map[_keyRepo] = repo.trim();
+      await file.writeAsString(jsonEncode(map));
       return;
     }
     await _storage.write(key: _keyOwner, value: owner.trim());
@@ -69,6 +71,21 @@ class StorageService {
     if (Platform.isMacOS) return false;
     final val = await _storage.read(key: _keyBiometricLock);
     return val == 'true';
+  }
+
+  // Quản lý mã PIN 4 số riêng của ứng dụng
+  Future<void> setAppPin(String? pin) async {
+    if (Platform.isMacOS) return;
+    if (pin == null || pin.isEmpty) {
+      await _storage.delete(key: _keyAppPin);
+    } else {
+      await _storage.write(key: _keyAppPin, value: pin);
+    }
+  }
+
+  Future<String?> getAppPin() async {
+    if (Platform.isMacOS) return null;
+    return await _storage.read(key: _keyAppPin);
   }
 
   Future<void> clearConfig() async {

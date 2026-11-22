@@ -204,8 +204,6 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
             TextField(
               controller: _contentController,
               keyboardType: TextInputType.multiline,
-              autocorrect: false,
-              enableSuggestions: false,
               maxLines: null,
               minLines: 10,
               decoration: const InputDecoration(
