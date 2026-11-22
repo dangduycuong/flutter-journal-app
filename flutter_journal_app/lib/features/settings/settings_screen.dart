@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
@@ -197,18 +199,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : 'Kiểm tra & Lưu cấu hình',
             ),
           ),
-          const Divider(height: 32),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            secondary: const Icon(Icons.fingerprint),
-            title: const Text('Khóa ứng dụng bằng FaceID / Vân tay'),
-            subtitle: const Text('Yêu cầu xác thực mỗi khi mở lại ứng dụng'),
-            value: _biometricEnabled,
-            onChanged: (val) async {
-              await _storage.setBiometricLockEnabled(val);
-              setState(() => _biometricEnabled = val);
-            },
-          ),
+          if (!Platform.isMacOS) ...[
+            const Divider(height: 32),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.fingerprint),
+              title: const Text('Khóa ứng dụng bằng FaceID / Vân tay'),
+              subtitle: const Text('Yêu cầu xác thực mỗi khi mở lại ứng dụng'),
+              value: _biometricEnabled,
+              onChanged: (val) async {
+                await _storage.setBiometricLockEnabled(val);
+                setState(() => _biometricEnabled = val);
+              },
+            ),
+          ],
         ],
       ),
     );

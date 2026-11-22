@@ -99,9 +99,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.book), label: 'Nhật ký'),
           NavigationDestination(
-            icon: Icon(Icons.format_quote),
+            icon: Icon(Icons.auto_awesome_outlined),
+            selectedIcon: Icon(Icons.auto_awesome),
             label: 'Tâm đắc',
           ),
+
           NavigationDestination(icon: Icon(Icons.settings), label: 'Cài đặt'),
         ],
       ),

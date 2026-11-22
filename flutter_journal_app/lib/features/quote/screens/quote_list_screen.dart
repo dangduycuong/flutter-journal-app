@@ -220,7 +220,11 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
           );
           if (created == true) _fetchQuotes();
         },
-        child: const Icon(Icons.format_quote),
+        child: Icon(
+          Icons.auto_awesome,
+          size: 20,
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }

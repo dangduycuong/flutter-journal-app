@@ -48,6 +48,7 @@ class GitHubService {
   }
 
   Future<List<dynamic>?> _readCache(String githubPath) async {
+    if (Platform.isMacOS) return null; // Không dùng cache trên macOS
     try {
       final file = await _getCacheFile(githubPath);
       if (await file.exists()) {
@@ -61,6 +62,7 @@ class GitHubService {
   }
 
   Future<void> _writeCache(String githubPath, List<dynamic> data) async {
+    if (Platform.isMacOS) return; // Không ghi cache trên macOS
     try {
       final file = await _getCacheFile(githubPath);
       await file.writeAsString(jsonEncode(data));

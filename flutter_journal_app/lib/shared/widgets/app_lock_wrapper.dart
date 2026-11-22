@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:material_ui/material_ui.dart';
@@ -52,6 +54,16 @@ class _AppLockWrapperState extends State<AppLockWrapper>
   }
 
   Future<void> _checkAndAuthenticate() async {
+    // Trên macOS (MacBook), bỏ qua khóa sinh trắc học để tránh xung đột Sandbox
+    if (Platform.isMacOS) {
+      if (mounted) {
+        setState(() {
+          _isLocked = false;
+          _isChecking = false;
+        });
+      }
+      return;
+    }
     final enabled = await _storage.isBiometricLockEnabled();
     if (!enabled) {
       if (mounted) {
