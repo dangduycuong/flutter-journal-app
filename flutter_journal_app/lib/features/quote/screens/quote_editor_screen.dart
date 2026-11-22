@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
@@ -37,6 +38,37 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       _contentController.text = q.content;
       _authorController.text = q.author ?? '';
       _existingImageUrls = List.from(q.imageUrls);
+    }
+  }
+
+  @override
+  void dispose() {
+    _contentController.dispose();
+    _authorController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    // Ẩn bàn phím tạm thời để iOS không chặn bộ đệm khi dán văn bản lớn
+    FocusScope.of(context).unfocus();
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != null && data!.text!.isNotEmpty) {
+      final currentText = _contentController.text;
+      final newText = currentText.isEmpty
+          ? data.text!
+          : '$currentText\n${data.text!}';
+      setState(() {
+        _contentController.text = newText;
+      });
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Bộ nhớ tạm trống hoặc chứa định dạng không phải văn bản',
+          ),
+        ),
+      );
     }
   }
 
@@ -105,6 +137,11 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
         title: Text(isEditing ? 'Sửa điều tâm đắc' : 'Lưu điều tâm đắc'),
         actions: [
           IconButton(
+            onPressed: _isSaving ? null : _pasteFromClipboard,
+            tooltip: 'Dán văn bản',
+            icon: const Icon(Icons.content_paste),
+          ),
+          IconButton(
             onPressed: _isSaving ? null : _saveQuote,
             icon: _isSaving
                 ? const SizedBox(
@@ -116,120 +153,127 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
           ),
         ],
       ),
-      body: ListView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: _contentController,
-            maxLines: null,
-            minLines: 6,
-            decoration: const InputDecoration(
-              hintText: 'Viết câu nói hay hoặc điều bạn tâm đắc...',
-              border: OutlineInputBorder(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _contentController,
+              keyboardType: TextInputType.multiline,
+              autocorrect: false,
+              enableSuggestions: false,
+              maxLines: null,
+              minLines: 10,
+              decoration: const InputDecoration(
+                hintText: 'Viết câu nói hay hoặc điều bạn tâm đắc...',
+                border: InputBorder.none,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _authorController,
-            decoration: const InputDecoration(
-              labelText: 'Tác giả / Nguồn sách (tùy chọn)',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _authorController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Tác giả / Nguồn sách (tùy chọn)',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          if (_existingImageUrls.isNotEmpty) ...[
-            const Text(
-              'Ảnh đã lưu:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _existingImageUrls.map((path) {
-                return Stack(
-                  children: [
-                    PrivateGitHubImage(
-                      owner: widget.githubService.owner,
-                      repo: widget.githubService.repo,
-                      token: widget.githubService.token,
-                      imagePath: path,
-                      width: 100,
-                      height: 100,
-                    ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _existingImageUrls.remove(path)),
-                        child: const CircleAvatar(
-                          radius: 12,
-                          backgroundColor: Colors.black54,
-                          child: Icon(
-                            Icons.close,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (_newImageFiles.isNotEmpty) ...[
-            const Text(
-              'Ảnh mới thêm:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _newImageFiles.map((file) {
-                return Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        file,
+            const SizedBox(height: 16),
+            if (_existingImageUrls.isNotEmpty) ...[
+              const Text(
+                'Ảnh đã lưu:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _existingImageUrls.map((path) {
+                  return Stack(
+                    children: [
+                      PrivateGitHubImage(
+                        owner: widget.githubService.owner,
+                        repo: widget.githubService.repo,
+                        token: widget.githubService.token,
+                        imagePath: path,
                         width: 100,
                         height: 100,
-                        fit: BoxFit.cover,
                       ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _newImageFiles.remove(file)),
-                        child: const CircleAvatar(
-                          radius: 12,
-                          backgroundColor: Colors.black54,
-                          child: Icon(
-                            Icons.close,
-                            size: 14,
-                            color: Colors.white,
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: GestureDetector(
+                          onTap: () =>
+                              setState(() => _existingImageUrls.remove(path)),
+                          child: const CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.black54,
+                            child: Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                    ],
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (_newImageFiles.isNotEmpty) ...[
+              const Text(
+                'Ảnh mới thêm:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _newImageFiles.map((file) {
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          file,
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: GestureDetector(
+                          onTap: () =>
+                              setState(() => _newImageFiles.remove(file)),
+                          child: const CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.black54,
+                            child: Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ],
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _isSaving ? null : _pickImages,
+              icon: const Icon(Icons.photo_library),
+              label: const Text('Thêm ảnh trang sách / minh họa'),
             ),
           ],
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _isSaving ? null : _pickImages,
-            icon: const Icon(Icons.photo_library),
-            label: const Text('Thêm ảnh trang sách / minh họa'),
-          ),
-        ],
+        ),
       ),
     );
   }

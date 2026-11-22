@@ -1,16 +1,18 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../core/services/github_service.dart';
 import '../../../shared/widgets/private_github_image.dart';
 import '../models/journal_entry.dart';
 
 class JournalEditorScreen extends StatefulWidget {
   final GitHubService githubService;
-  final JournalEntry? existingEntry; // Null = Thêm mới, Khác null = Sửa
+  final JournalEntry? existingEntry;
 
   const JournalEditorScreen({
     super.key,
@@ -44,6 +46,37 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    // Ẩn bàn phím tạm thời để iOS không chặn bộ đệm khi dán văn bản lớn
+    FocusScope.of(context).unfocus();
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != null && data!.text!.isNotEmpty) {
+      final currentText = _contentController.text;
+      final newText = currentText.isEmpty
+          ? data.text!
+          : '$currentText\n${data.text!}';
+      setState(() {
+        _contentController.text = newText;
+      });
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Bộ nhớ tạm trống hoặc chứa định dạng không phải văn bản',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -60,7 +93,7 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
     final picker = ImagePicker();
     final pickedFiles = await picker.pickMultiImage(
       imageQuality: 75,
-      maxWidth: 1200, // Tự động thu gọn chiều ngang tối đa 1200px cho nhẹ
+      maxWidth: 1200,
     );
     if (pickedFiles.isNotEmpty) {
       setState(() {
@@ -82,7 +115,6 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
       final now = DateTime.now();
       final entryId = widget.existingEntry?.id ?? const Uuid().v4();
 
-      // 1. Upload các ảnh mới chọn lên GitHub
       final List<String> finalImageUrls = List.from(_existingImageUrls);
       for (final file in _newImageFiles) {
         final uploadedPath = await widget.githubService.uploadImage(
@@ -92,7 +124,6 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
         finalImageUrls.add(uploadedPath);
       }
 
-      // 2. Tạo object JournalEntry
       final entry = JournalEntry(
         id: entryId,
         title: _titleController.text.trim(),
@@ -103,17 +134,13 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
         imageUrls: finalImageUrls,
       );
 
-      // 3. Lưu lên GitHub
       await widget.githubService.saveJournalEntry(
         entry,
         oldEntry: widget.existingEntry,
       );
 
       if (!mounted) return;
-      Navigator.pop(
-        context,
-        true,
-      ); // Trả về true để màn hình danh sách tự tải lại
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -131,6 +158,11 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
         title: Text(isEditing ? 'Sửa nhật ký' : 'Viết nhật ký mới'),
         actions: [
           IconButton(
+            onPressed: _isSaving ? null : _pasteFromClipboard,
+            tooltip: 'Dán văn bản',
+            icon: const Icon(Icons.content_paste),
+          ),
+          IconButton(
             onPressed: _isSaving ? null : _saveEntry,
             icon: _isSaving
                 ? const SizedBox(
@@ -142,134 +174,141 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
           ),
         ],
       ),
-      body: ListView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        children: [
-          // Chọn Ngày ghi (entryDate)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.calendar_today),
-            title: const Text('Ngày ghi nhật ký'),
-            subtitle: Text(DateFormat('dd/MM/yyyy').format(_selectedEntryDate)),
-            trailing: TextButton(
-              onPressed: _pickDate,
-              child: const Text('Đổi ngày'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.calendar_today),
+              title: const Text('Ngày ghi nhật ký'),
+              subtitle: Text(
+                DateFormat('dd/MM/yyyy').format(_selectedEntryDate),
+              ),
+              trailing: TextButton(
+                onPressed: _pickDate,
+                child: const Text('Đổi ngày'),
+              ),
             ),
-          ),
-          const Divider(),
-          TextField(
-            controller: _titleController,
-            decoration: const InputDecoration(
-              hintText: 'Tiêu đề (tùy chọn)',
-              border: InputBorder.none,
+            const Divider(),
+            TextField(
+              controller: _titleController,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                hintText: 'Tiêu đề (tùy chọn)',
+                border: InputBorder.none,
+              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          TextField(
-            controller: _contentController,
-            maxLines: null,
-            minLines: 8,
-            decoration: const InputDecoration(
-              hintText: 'Hôm nay của bạn thế nào...',
-              border: InputBorder.none,
+            TextField(
+              controller: _contentController,
+              keyboardType: TextInputType.multiline,
+              autocorrect: false,
+              enableSuggestions: false,
+              maxLines: null,
+              minLines: 10,
+              decoration: const InputDecoration(
+                hintText: 'Hôm nay của bạn thế nào...',
+                border: InputBorder.none,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          // Hiển thị ảnh cũ trên GitHub (nếu có)
-          if (_existingImageUrls.isNotEmpty) ...[
-            const Text(
-              'Ảnh đã lưu:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _existingImageUrls.map((path) {
-                return Stack(
-                  children: [
-                    PrivateGitHubImage(
-                      owner: widget.githubService.owner,
-                      repo: widget.githubService.repo,
-                      token: widget.githubService.token,
-                      imagePath: path,
-                      width: 100,
-                      height: 100,
-                    ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _existingImageUrls.remove(path)),
-                        child: const CircleAvatar(
-                          radius: 12,
-                          backgroundColor: Colors.black54,
-                          child: Icon(
-                            Icons.close,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-          ],
-          // Hiển thị ảnh mới chọn từ máy
-          if (_newImageFiles.isNotEmpty) ...[
-            const Text(
-              'Ảnh mới thêm:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _newImageFiles.map((file) {
-                return Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        file,
+
+            const SizedBox(height: 16),
+            if (_existingImageUrls.isNotEmpty) ...[
+              const Text(
+                'Ảnh đã lưu:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _existingImageUrls.map((path) {
+                  return Stack(
+                    children: [
+                      PrivateGitHubImage(
+                        owner: widget.githubService.owner,
+                        repo: widget.githubService.repo,
+                        token: widget.githubService.token,
+                        imagePath: path,
                         width: 100,
                         height: 100,
-                        fit: BoxFit.cover,
                       ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _newImageFiles.remove(file)),
-                        child: const CircleAvatar(
-                          radius: 12,
-                          backgroundColor: Colors.black54,
-                          child: Icon(
-                            Icons.close,
-                            size: 14,
-                            color: Colors.white,
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: GestureDetector(
+                          onTap: () =>
+                              setState(() => _existingImageUrls.remove(path)),
+                          child: const CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.black54,
+                            child: Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                    ],
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (_newImageFiles.isNotEmpty) ...[
+              const Text(
+                'Ảnh mới thêm:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _newImageFiles.map((file) {
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          file,
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: GestureDetector(
+                          onTap: () =>
+                              setState(() => _newImageFiles.remove(file)),
+                          child: const CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.black54,
+                            child: Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ],
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _isSaving ? null : _pickImages,
+              icon: const Icon(Icons.photo_library),
+              label: const Text('Thêm ảnh đính kèm'),
             ),
           ],
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _isSaving ? null : _pickImages,
-            icon: const Icon(Icons.photo_library),
-            label: const Text('Thêm ảnh đính kèm'),
-          ),
-        ],
+        ),
       ),
     );
   }

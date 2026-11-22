@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -17,7 +18,8 @@ class _AppLockWrapperState extends State<AppLockWrapper>
   final _storage = StorageService();
   bool _isLocked = false;
   bool _isChecking = true;
-  bool _isAuthenticating = false; // Cờ chặn gọi trùng lặp FaceID
+  bool _isAuthenticating = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -34,13 +36,15 @@ class _AppLockWrapperState extends State<AppLockWrapper>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    // Bỏ qua sự kiện vòng đời nếu hộp thoại FaceID đang mở
     if (_isAuthenticating) return;
 
     if (state == AppLifecycleState.paused) {
       final enabled = await _storage.isBiometricLockEnabled();
       if (enabled && mounted) {
-        setState(() => _isLocked = true);
+        setState(() {
+          _isLocked = true;
+          _errorMessage = null;
+        });
       }
     } else if (state == AppLifecycleState.resumed && _isLocked) {
       _authenticate();
@@ -71,20 +75,51 @@ class _AppLockWrapperState extends State<AppLockWrapper>
   Future<void> _authenticate() async {
     if (_isAuthenticating) return;
     _isAuthenticating = true;
+    setState(() => _errorMessage = null);
 
     try {
+      // Kiểm tra xem thiết bị có hỗ trợ xác thực nào không (vân tay, khuôn mặt hoặc PIN/mật khẩu)
+      final canCheckBiometrics = await _auth.canCheckBiometrics;
+      final isDeviceSupported = await _auth.isDeviceSupported();
+
+      if (!canCheckBiometrics && !isDeviceSupported) {
+        if (mounted) {
+          setState(() {
+            _isLocked = false;
+          });
+        }
+        return;
+      }
+
       final didAuthenticate = await _auth.authenticate(
-        localizedReason: 'Xác thực để mở khóa Nhật ký & Tâm đắc',
+        localizedReason: 'Quét vân tay hoặc nhập mật khẩu thiết bị để mở khóa',
         persistAcrossBackgrounding: true,
-        biometricOnly: false,
+        biometricOnly:
+            false, // Cho phép chuyển sang PIN/mật khẩu/hình vẽ của máy
       );
+
       if (didAuthenticate && mounted) {
-        setState(() => _isLocked = false);
+        setState(() {
+          _isLocked = false;
+          _errorMessage = null;
+        });
+      }
+    } on PlatformException catch (e) {
+      debugPrint('Lỗi PlatformException xác thực: ${e.code} - ${e.message}');
+      if (mounted) {
+        setState(() {
+          _errorMessage =
+              'Vân tay không nhận diện được (${e.code}). Bạn có thể thử lại hoặc nhập mật khẩu máy.';
+        });
       }
     } catch (e) {
       debugPrint('Lỗi xác thực sinh trắc học: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Không thể xác thực vân tay. Vui lòng thử lại.';
+        });
+      }
     } finally {
-      // Đợi 500ms sau khi hộp thoại hệ thống đóng hẳn mới mở lại cờ
       await Future.delayed(const Duration(milliseconds: 500));
       _isAuthenticating = false;
     }
@@ -116,10 +151,29 @@ class _AppLockWrapperState extends State<AppLockWrapper>
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Xác thực bằng FaceID, vân tay hoặc mật mã thiết bị để tiếp tục.',
+                  'Xác thực bằng vân tay, khuôn mặt hoặc mật mã thiết bị để tiếp tục.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey),
                 ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: _authenticate,
