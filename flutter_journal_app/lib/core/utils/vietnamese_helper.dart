@@ -1,28 +1,23 @@
 class VietnameseHelper {
-  static String removeDiacritics(String text) {
-    const vietnameseMap = <String, String>{
-      'a': 'àáạảãâầấậẩẫăằắặẳẵ',
-      'e': 'èéẹẻẽêềếệểễ',
-      'i': 'ìíịỉĩ',
-      'o': 'òóọỏõôồốộổỗơờớợởỡ',
-      'u': 'ùúụủũưừứựửữ',
-      'y': 'ỳýỵỷỹ',
-      'd': 'đ',
-    };
+  static String removeDiacritics(String str) {
+    const withDia =
+        'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ'
+        'ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ';
+    const withoutDia =
+        'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd'
+        'AAAAAAAAAAAAAAAAAEEEEEEEEEEEIIIIIOOOOOOOOOOOOOOOOOUUUUUUUUUUUYYYYYD';
 
-    String result = text.toLowerCase();
-    vietnameseMap.forEach((nonAccent, accents) {
-      for (int i = 0; i < accents.length; i++) {
-        result = result.replaceAll(accents[i], nonAccent);
-      }
-    });
+    var result = str;
+    for (int i = 0; i < withDia.length; i++) {
+      result = result.replaceAll(withDia[i], withoutDia[i]);
+    }
     return result;
   }
 
-  // Kiểm tra xem nội dung có chứa từ khóa không (hỗ trợ cả có dấu và không dấu)
-  static bool matches(String source, String keyword) {
-    final normalizedSource = removeDiacritics(source);
-    final normalizedKeyword = removeDiacritics(keyword.trim());
-    return normalizedSource.contains(normalizedKeyword);
+  static bool matches(String text, String query) {
+    final normText = removeDiacritics(text).toLowerCase();
+    final normQuery = removeDiacritics(query.trim()).toLowerCase();
+    if (normQuery.isEmpty) return false;
+    return normText.contains(normQuery);
   }
 }

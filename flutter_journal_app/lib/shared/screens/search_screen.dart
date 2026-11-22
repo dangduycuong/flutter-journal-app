@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter_journal_app/shared/widgets/%20highlighted_text.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 
@@ -17,120 +20,160 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
+  Timer? _debounce;
   bool _isSearching = false;
-  bool _hasSearched = false;
   List<JournalEntry> _journalResults = [];
   List<QuoteNote> _quoteResults = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(() => setState(() {}));
-  }
+  String _activeQuery = '';
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _performSearch() async {
-    final keyword = _searchController.text.trim();
-    if (keyword.isEmpty) return;
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _performSearch(value);
+    });
+  }
 
-    FocusScope.of(context).unfocus(); // Ẩn bàn phím
+  Future<void> _performSearch(String keyword) async {
+    final cleanQuery = keyword.trim();
+    if (cleanQuery.isEmpty) {
+      setState(() {
+        _activeQuery = '';
+        _journalResults = [];
+        _quoteResults = [];
+        _isSearching = false;
+      });
+      return;
+    }
+
     setState(() {
       _isSearching = true;
-      _hasSearched = true;
+      _activeQuery = cleanQuery;
     });
 
     try {
-      final results = await widget.githubService.searchAll(keyword);
-      setState(() {
-        _journalResults = results['journals'] as List<JournalEntry>;
-        _quoteResults = results['quotes'] as List<QuoteNote>;
-      });
-    } catch (e) {
+      final results = await widget.githubService.searchAll(cleanQuery);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Lỗi tìm kiếm: $e')));
+        setState(() {
+          _journalResults = List<JournalEntry>.from(results['journals'] ?? []);
+          _quoteResults = List<QuoteNote>.from(results['quotes'] ?? []);
+        });
+      }
+    } catch (e, stackTrace) {
+      debugPrint('=== LỖI TÌM KIẾM ===');
+      debugPrint('Chi tiết lỗi: $e');
+      debugPrint('StackTrace: $stackTrace');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tìm kiếm: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
-      if (mounted) setState(() => _isSearching = false);
+      if (mounted) {
+        setState(() => _isSearching = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalFound = _journalResults.length + _quoteResults.length;
+    final hasResults = _journalResults.isNotEmpty || _quoteResults.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
         title: TextField(
           controller: _searchController,
           autofocus: true,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) => _performSearch(),
+          onChanged: _onSearchChanged,
+          onSubmitted: _performSearch,
           decoration: InputDecoration(
-            hintText: 'Nhập từ khóa nhật ký, câu nói...',
+            hintText: 'Tìm nhật ký, tâm đắc (có hoặc không dấu)...',
             border: InputBorder.none,
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () {
                       _searchController.clear();
-                      setState(() {
-                        _journalResults = [];
-                        _quoteResults = [];
-                        _hasSearched = false;
-                      });
+                      _performSearch('');
                     },
                   )
                 : null,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: _isSearching ? null : _performSearch,
-          ),
-        ],
       ),
       body: _isSearching
           ? const Center(child: CircularProgressIndicator())
-          : !_hasSearched
-          ? const Center(child: Text('Nhập từ khóa và bấm tìm kiếm'))
-          : totalFound == 0
-          ? const Center(child: Text('Không tìm thấy kết quả nào phù hợp.'))
+          : _activeQuery.isEmpty
+          ? const Center(
+              child: Text(
+                'Nhập từ khóa để tìm kiếm toàn bộ bài viết',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          : !hasResults
+          ? Center(
+              child: Text(
+                'Không tìm thấy kết quả nào cho "$_activeQuery"',
+                style: const TextStyle(color: Colors.grey),
+              ),
+            )
           : ListView(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               children: [
                 if (_journalResults.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Nhật ký (${_journalResults.length})',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  Text(
+                    'Nhật ký (${_journalResults.length})',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 8),
                   ..._journalResults.map(
                     (entry) => Card(
+                      margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
-                        leading: const Icon(Icons.book, color: Colors.teal),
-                        title: Text(
-                          entry.title.isNotEmpty
-                              ? entry.title
-                              : DateFormat('dd/MM/yyyy')
-                                    .format(entry.entryDate),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        contentPadding: const EdgeInsets.all(12),
+                        title: HighlightedText(
+                          text: entry.title.isEmpty
+                              ? 'Không tiêu đề'
+                              : entry.title,
+                          query: _activeQuery,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
                         ),
-                        subtitle: Text(
-                          '${DateFormat('dd/MM/yyyy').format(entry.entryDate)} • ${entry.content}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              DateFormat('dd/MM/yyyy HH:mm')
+                                  .format(entry.entryDate),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            HighlightedText(
+                              text: entry.content,
+                              query: _activeQuery,
+                              style: const TextStyle(fontSize: 14),
+                              maxLines: 3,
+                            ),
+                          ],
                         ),
                         onTap: () async {
                           final updated = await Navigator.push<bool>(
@@ -142,44 +185,66 @@ class _SearchScreenState extends State<SearchScreen> {
                               ),
                             ),
                           );
-                          if (updated == true) _performSearch();
+                          if (updated == true) {
+                            _performSearch(_activeQuery);
+                          }
                         },
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
                 ],
                 if (_quoteResults.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Điều tâm đắc (${_quoteResults.length})',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  Text(
+                    'Tâm đắc (${_quoteResults.length})',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 8),
                   ..._quoteResults.map(
                     (quote) => Card(
+                      margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
-                        leading: const Icon(
-                          Icons.format_quote,
-                          color: Colors.amber,
+                        contentPadding: const EdgeInsets.all(12),
+                        title: HighlightedText(
+                          text: quote.content,
+                          query: _activeQuery,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 4,
                         ),
-                        title: Text(
-                          '“${quote.content}”',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontStyle: FontStyle.italic),
-                        ),
-                        subtitle: Text(
-                          quote.author != null && quote.author!.isNotEmpty
-                              ? '— ${quote.author}'
-                              : DateFormat('dd/MM/yyyy')
-                                    .format(quote.createdAt),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (quote.author != null &&
+                                quote.author!.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              HighlightedText(
+                                text: '— ${quote.author!}',
+                                query: _activeQuery,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                              ),
+                            ],
+                            const SizedBox(height: 4),
+                            Text(
+                              DateFormat('dd/MM/yyyy').format(quote.createdAt),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
                         ),
                         onTap: () async {
-                          final updated = await Navigator.push<bool>(
+                          final updated = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => QuoteEditorScreen(
@@ -188,7 +253,9 @@ class _SearchScreenState extends State<SearchScreen> {
                               ),
                             ),
                           );
-                          if (updated == true) _performSearch();
+                          if (updated == true) {
+                            _performSearch(_activeQuery);
+                          }
                         },
                       ),
                     ),
