@@ -194,13 +194,24 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
             const Divider(),
             TextField(
               controller: _titleController,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
                 hintText: 'Tiêu đề (tùy chọn)',
                 border: InputBorder.none,
+                suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _titleController,
+                  builder: (context, value, child) {
+                    if (value.text.isEmpty) return const SizedBox.shrink();
+                    return IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      tooltip: 'Xóa tiêu đề',
+                      onPressed: () => _titleController.clear(),
+                    );
+                  },
+                ),
               ),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
+
             TextField(
               controller: _contentController,
               keyboardType: TextInputType.multiline,

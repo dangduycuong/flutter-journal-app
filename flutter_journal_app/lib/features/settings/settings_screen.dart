@@ -52,6 +52,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  Widget _buildClearButton(TextEditingController controller, String tooltip) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, child) {
+        if (value.text.isEmpty) return const SizedBox.shrink();
+        return IconButton(
+          icon: const Icon(Icons.close, size: 20),
+          tooltip: tooltip,
+          onPressed: () => controller.clear(),
+        );
+      },
+    );
+  }
+
   Future<void> _showSetPinDialog() async {
     final pinController = TextEditingController();
     final result = await showDialog<String>(
@@ -177,17 +191,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _ownerController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'GitHub Username (Owner)',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              suffixIcon: _buildClearButton(_ownerController, 'Xóa Username'),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _repoController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Tên Repository (mặc định: my-journal-data)',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              suffixIcon: _buildClearButton(_repoController, 'Xóa tên Repo'),
             ),
           ),
           const SizedBox(height: 12),
@@ -197,11 +213,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             decoration: InputDecoration(
               labelText: 'Personal Access Token (PAT)',
               border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscureToken ? Icons.visibility : Icons.visibility_off,
-                ),
-                onPressed: () => setState(() => _obscureToken = !_obscureToken),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildClearButton(_tokenController, 'Xóa Token'),
+                  IconButton(
+                    icon: Icon(
+                      _obscureToken ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    tooltip: _obscureToken ? 'Hiện Token' : 'Ẩn Token',
+                    onPressed: () =>
+                        setState(() => _obscureToken = !_obscureToken),
+                  ),
+                ],
               ),
             ),
           ),

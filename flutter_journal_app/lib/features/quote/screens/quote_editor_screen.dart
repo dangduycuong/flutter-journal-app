@@ -171,12 +171,23 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: _authorController,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Tác giả / Nguồn sách (tùy chọn)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: 'Tác giả / Nguồn (tùy chọn)',
+                border: const OutlineInputBorder(),
+                suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _authorController,
+                  builder: (context, value, child) {
+                    if (value.text.isEmpty) return const SizedBox.shrink();
+                    return IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      tooltip: 'Xóa tác giả',
+                      onPressed: () => _authorController.clear(),
+                    );
+                  },
+                ),
               ),
             ),
+
             const SizedBox(height: 16),
             if (_existingImageUrls.isNotEmpty) ...[
               const Text(
