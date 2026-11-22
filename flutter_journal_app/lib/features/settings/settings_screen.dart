@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
@@ -21,6 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _isTesting = false;
   bool _obscureToken = true;
+  bool _biometricEnabled = false;
 
   @override
   void initState() {
@@ -42,6 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadConfig() async {
     final config = await _storage.getGitHubConfig();
+    _biometricEnabled = await _storage.isBiometricLockEnabled();
     setState(() {
       _ownerController.text = config['owner'] ?? '';
       _repoController.text = config['repo'] ?? 'my-journal-data';
@@ -196,6 +196,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ? 'Đang kiểm tra kết nối...'
                   : 'Kiểm tra & Lưu cấu hình',
             ),
+          ),
+          const Divider(height: 32),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.fingerprint),
+            title: const Text('Khóa ứng dụng bằng FaceID / Vân tay'),
+            subtitle: const Text('Yêu cầu xác thực mỗi khi mở lại ứng dụng'),
+            value: _biometricEnabled,
+            onChanged: (val) async {
+              await _storage.setBiometricLockEnabled(val);
+              setState(() => _biometricEnabled = val);
+            },
           ),
         ],
       ),

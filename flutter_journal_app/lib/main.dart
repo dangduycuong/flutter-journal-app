@@ -1,3 +1,4 @@
+import 'package:flutter_journal_app/shared/widgets/app_lock_wrapper.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'core/services/github_service.dart';
@@ -19,7 +20,7 @@ class MyJournalApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Nhật ký & Tâm đắc',
       theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
-      home: const MainNavigationScreen(),
+      home: AppLockWrapper(child: const MainNavigationScreen()),
     );
   }
 }

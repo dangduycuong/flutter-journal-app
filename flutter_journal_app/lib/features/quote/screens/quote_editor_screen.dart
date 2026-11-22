@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/services/github_service.dart';
 import '../../../shared/widgets/private_github_image.dart';

@@ -5,8 +5,8 @@ class StorageService {
   static const _keyToken = 'github_token';
   static const _keyOwner = 'github_owner';
   static const _keyRepo = 'github_repo';
+  static const _keyBiometricLock = 'biometric_lock_enabled';
 
-  // Lưu thông tin cấu hình GitHub
   Future<void> saveGitHubConfig({
     required String owner,
     required String token,
@@ -17,7 +17,6 @@ class StorageService {
     await _storage.write(key: _keyRepo, value: repo.trim());
   }
 
-  // Đọc thông tin cấu hình
   Future<Map<String, String?>> getGitHubConfig() async {
     final owner = await _storage.read(key: _keyOwner);
     final token = await _storage.read(key: _keyToken);
@@ -25,7 +24,16 @@ class StorageService {
     return {'owner': owner, 'token': token, 'repo': repo};
   }
 
-  // Xóa cấu hình (khi muốn đổi tài khoản/token)
+  // Bật / Tắt khóa FaceID / Vân tay
+  Future<void> setBiometricLockEnabled(bool enabled) async {
+    await _storage.write(key: _keyBiometricLock, value: enabled.toString());
+  }
+
+  Future<bool> isBiometricLockEnabled() async {
+    final val = await _storage.read(key: _keyBiometricLock);
+    return val == 'true';
+  }
+
   Future<void> clearConfig() async {
     await _storage.deleteAll();
   }

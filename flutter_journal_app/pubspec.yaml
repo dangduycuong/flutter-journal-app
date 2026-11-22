@@ -39,8 +39,17 @@ dependencies:
   uuid: ^4.6.0
   flutter_secure_storage: ^11.2.0
   intl: ^0.20.3
+  local_auth: ^3.0.2
 
-  image_picker: ^1.1.2
+  image_picker: any
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  remove_alpha_ios: true
+
+
+  local_auth: ^3.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -51,6 +60,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
