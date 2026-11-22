@@ -29,8 +29,17 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
   Future<void> _fetchQuotes() async {
     setState(() => _isLoading = true);
     try {
-      final data = await widget.githubService.getQuotesByYear('$_selectedYear');
-      setState(() => _quotes = data);
+      final data = await widget.githubService.getQuotesByYear(
+        '$_selectedYear',
+        onUpdate: (freshData) {
+          if (mounted) {
+            setState(() => _quotes = freshData);
+          }
+        },
+      );
+      if (mounted) {
+        setState(() => _quotes = data);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)

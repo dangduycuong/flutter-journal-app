@@ -30,8 +30,17 @@ class _JournalListScreenState extends State<JournalListScreen> {
     setState(() => _isLoading = true);
     try {
       final monthKey = DateFormat('yyyy-MM').format(_currentMonth);
-      final data = await widget.githubService.getJournalsByMonth(monthKey);
-      setState(() => _entries = data);
+      final data = await widget.githubService.getJournalsByMonth(
+        monthKey,
+        onUpdate: (freshData) {
+          if (mounted) {
+            setState(() => _entries = freshData);
+          }
+        },
+      );
+      if (mounted) {
+        setState(() => _entries = data);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
