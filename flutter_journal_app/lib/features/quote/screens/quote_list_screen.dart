@@ -162,12 +162,16 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
                             ],
                           ),
                           Text(
-                            '“${quote.content}”',
+                            quote.content,
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontStyle: FontStyle.italic,
+                              height: 1.4,
                             ),
                           ),
+
                           if (quote.author != null &&
                               quote.author!.isNotEmpty) ...[
                             const SizedBox(height: 8),

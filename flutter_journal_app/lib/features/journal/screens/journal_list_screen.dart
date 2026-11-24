@@ -180,9 +180,11 @@ class _JournalListScreenState extends State<JournalListScreen> {
                           ],
                           Text(
                             entry.content,
-                            maxLines: 4,
+                            maxLines: 3,
                             overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14, height: 1.4),
                           ),
+
                           if (entry.imageUrls.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             SizedBox(
