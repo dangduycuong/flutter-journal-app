@@ -91,7 +91,10 @@ class _JournalListScreenState extends State<JournalListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Nhật ký ${DateFormat('MM/yyyy').format(_currentMonth)}'),
+        title: Text(
+          'Nhật ký ${DateFormat('MM/yyyy').format(_currentMonth)}',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
@@ -172,7 +175,7 @@ class _JournalListScreenState extends State<JournalListScreen> {
                             Text(
                               entry.title,
                               style: const TextStyle(
-                                fontSize: 16,
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),

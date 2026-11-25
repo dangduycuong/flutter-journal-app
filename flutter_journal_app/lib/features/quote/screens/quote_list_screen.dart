@@ -80,7 +80,10 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Tâm đắc $_selectedYear'),
+        title: Text(
+          'Tâm đắc $_selectedYear',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
@@ -148,7 +151,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
                                 DateFormat('dd/MM/yyyy')
                                     .format(quote.createdAt),
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   color: Colors.grey.shade600,
                                 ),
                               ),
@@ -166,7 +169,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
                             maxLines: 4,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontStyle: FontStyle.italic,
                               height: 1.4,
                             ),

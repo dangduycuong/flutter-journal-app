@@ -134,7 +134,10 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
     final isEditing = widget.existingQuote != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Sửa điều tâm đắc' : 'Lưu điều tâm đắc'),
+        title: Text(
+          isEditing ? 'Sửa điều tâm đắc' : 'Lưu điều tâm đắc',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             onPressed: _isSaving ? null : _pasteFromClipboard,

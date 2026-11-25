@@ -155,7 +155,10 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
     final isEditing = widget.existingEntry != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Sửa nhật ký' : 'Viết nhật ký mới'),
+        title: Text(
+          isEditing ? 'Sửa nhật ký' : 'Viết nhật ký mới',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             onPressed: _isSaving ? null : _pasteFromClipboard,
@@ -194,7 +197,7 @@ class _JournalEditorScreenState extends State<JournalEditorScreen> {
             const Divider(),
             TextField(
               controller: _titleController,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
                 hintText: 'Tiêu đề (tùy chọn)',
                 border: InputBorder.none,

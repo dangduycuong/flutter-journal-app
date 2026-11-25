@@ -13,13 +13,26 @@ void main() {
 
 class MyJournalApp extends StatelessWidget {
   const MyJournalApp({super.key});
-
+  final double _textScaler = 1.25;
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Nhật ký & Tâm đắc',
       theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
+      darkTheme: ThemeData(
+        colorSchemeSeed: Colors.teal,
+        brightness: Brightness.dark,
+        useMaterial3: true,
+      ),
+      themeMode: ThemeMode.system,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(_textScaler)),
+          child: child!,
+        );
+      },
       home: AppLockWrapper(child: const MainNavigationScreen()),
     );
   }
