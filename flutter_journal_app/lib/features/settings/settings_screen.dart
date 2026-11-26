@@ -249,6 +249,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 : const Icon(Icons.save),
             label: const Text('Kiểm tra & Lưu cấu hình'),
           ),
+
           if (!Platform.isMacOS) ...[
             const Divider(height: 32),
             const Text(
@@ -279,6 +280,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: (val) async {
                 await _storage.setBiometricLockEnabled(val);
                 setState(() => _biometricEnabled = val);
+              },
+            ),
+            const Divider(height: 32),
+            const Text(
+              'Giao diện & Hiển thị',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ValueListenableBuilder<double>(
+              valueListenable: StorageService.fontScaleNotifier,
+              builder: (context, scale, _) {
+                final percent = (scale * 100).round();
+                return Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.format_size),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Cỡ chữ ứng dụng',
+                                style: TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                'Hiện tại: $percent% (Mỗi lần ±5%)',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton.outlined(
+                          icon: const Icon(Icons.remove),
+                          tooltip: 'Giảm 5%',
+                          onPressed: scale <= 0.85
+                              ? null
+                              : () => _storage.setFontScale(scale - 0.05),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.outlined(
+                          icon: const Icon(Icons.add),
+                          tooltip: 'Tăng 5%',
+                          onPressed: scale >= 1.50
+                              ? null
+                              : () => _storage.setFontScale(scale + 0.05),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               },
             ),
           ],

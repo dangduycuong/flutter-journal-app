@@ -7,33 +7,40 @@ import 'features/journal/screens/journal_list_screen.dart';
 import 'features/quote/screens/quote_list_screen.dart';
 import 'features/settings/settings_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await StorageService().initFontScale();
   runApp(const MyJournalApp());
 }
 
 class MyJournalApp extends StatelessWidget {
   const MyJournalApp({super.key});
-  final double _textScaler = 1.25;
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Nhật ký & Tâm đắc',
-      theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
-      darkTheme: ThemeData(
-        colorSchemeSeed: Colors.teal,
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
-      themeMode: ThemeMode.system,
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(_textScaler)),
-          child: child!,
+    return ValueListenableBuilder<double>(
+      valueListenable: StorageService.fontScaleNotifier,
+      builder: (context, fontScale, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Nhật ký & Tâm đắc',
+          theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
+          darkTheme: ThemeData(
+            colorSchemeSeed: Colors.teal,
+            brightness: Brightness.dark,
+            useMaterial3: true,
+          ),
+          themeMode: ThemeMode.system,
+          builder: (context, child) {
+            return MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(fontScale)),
+              child: child!,
+            );
+          },
+          home: AppLockWrapper(child: const MainNavigationScreen()),
         );
       },
-      home: AppLockWrapper(child: const MainNavigationScreen()),
     );
   }
 }
